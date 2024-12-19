@@ -6,7 +6,7 @@ export const onRequestGet = async (context) => {
     const customers = await context.env.DB.prepare('SELECT * FROM Customers').all()
     return createResponse(customers.results)
   } catch (error) {
-    return createErrorResponse(error.message)
+    return createErrorResponse(error)
   }
 }
 
@@ -21,7 +21,7 @@ export const onRequestPost = async (context) => {
       .run()
     return createResponse(customers.results[0])
   } catch (error) {
-    return createErrorResponse(error.message)
+    return createErrorResponse(error)
   }
 }
 
@@ -36,7 +36,7 @@ export const onRequestPut = async (context) => {
       .run()
     return createResponse(customers.results[0])
   } catch (error) {
-    return createErrorResponse(error.message)
+    return createErrorResponse(error)
   }
 }
 
@@ -44,7 +44,7 @@ export const onRequestDelete = async (context) => {
   try {
     const { CustomerId } = await context.request.json()
     if (!CustomerId) {
-      return createErrorResponse('CustomerId is required', 400, 400)
+      return createErrorResponse(null, 'CustomerId is required', 400, 400)
     }
     console.log('delete customer!', CustomerId)
     await context.env.DB.prepare('DELETE FROM Customers WHERE CustomerId = ?')
@@ -52,6 +52,6 @@ export const onRequestDelete = async (context) => {
       .run()
     return createResponse()
   } catch (error) {
-    return createErrorResponse(error.message)
+    return createErrorResponse(error)
   }
 }

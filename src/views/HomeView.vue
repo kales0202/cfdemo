@@ -1,33 +1,33 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import request from '@/utils/request'
 
-onMounted(() => {
-  console.log('onMounted')
-  fetch('/api/customer')
-    .then((res) => res.json())
-    .then((data) => console.log(data))
-    .catch((err) => console.error(err))
+interface Customer {
+  CustomerId: number
+  CompanyName: string
+  ContactName: string
+}
 
-  // 测试创建一个客户然后删除
-  fetch('/api/customer', {
-    method: 'POST',
-    body: JSON.stringify({ CompanyName: 'Test', ContactName: 'Test' }),
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      console.log('create customer success!', data)
-      const customerId = data.results[0].CustomerId
-      return fetch('/api/customer', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ CustomerId: customerId }),
-      })
+onMounted(async () => {
+  try {
+    // 获取客户列表
+    const customers: Customer[] = await request.get('/customer')
+    console.log(customers)
+
+    // 创建并删除客户测试
+    const newCustomer: Customer = await request.post('/customer', {
+      CompanyName: 'Test',
+      ContactName: 'Test',
     })
-    .then((res) => res.json())
-    .then((data) => console.log('delete customer success!', data))
-    .catch((err) => console.error(err))
+    console.log('create customer success!', newCustomer)
+
+    await request.delete('/customer', {
+      data: { CustomerId: newCustomer.CustomerId },
+    })
+    console.log('delete customer success!')
+  } catch (error) {
+    console.error(error)
+  }
 })
 </script>
 

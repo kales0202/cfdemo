@@ -4,14 +4,14 @@ interface ApiResponse<T = never> {
   msg: string
 }
 
-export function createResponse<T>(data: T | null = null, msg = '', code = 0): Response {
+export function createResponse<T>(data: T | null = null, msg = '', code = 0, status = 200): Response {
   const json: ApiResponse<T> = { code, data, msg }
-  return new Response(JSON.stringify(json))
+  return new Response(JSON.stringify(json), { status })
 }
 
 export function createErrorResponse(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  error: any,
+  error: any | null,
   msg: string = '',
   code = 500,
   status = 500,

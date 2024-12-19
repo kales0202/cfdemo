@@ -10,7 +10,7 @@ interface Customer {
 
 onMounted(async () => {
   // 获取客户列表
-  const customers: Customer[] = await request.get('/customer')
+  const customers: Customer[] = await request.get('/customer/list')
   console.log(customers)
 
   // 创建并删除客户测试
@@ -20,9 +20,7 @@ onMounted(async () => {
   })
   console.log('create customer success!', newCustomer)
 
-  await request.delete('/customer', {
-    data: { CustomerId: newCustomer.CustomerId },
-  })
+  await request.delete(`/customer/${newCustomer.CustomerId}`)
   console.log('delete customer success!')
 })
 </script>

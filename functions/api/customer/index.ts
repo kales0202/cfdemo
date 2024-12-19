@@ -1,20 +1,32 @@
+import { AutoRouter, IRequest } from 'itty-router'
 import { createResponse, createErrorResponse } from '../../utils/response'
+import { Env } from '../../types/worker-configuration'
 
-export const onRequestGet = async (context) => {
-  console.log('customer get!')
+const router = AutoRouter({ base: '/api/customer' })
+
+// 获取客户列表
+router.get<IRequest>('/list', async (request, env: Env) => {
   try {
-    const customers = await context.env.DB.prepare('SELECT * FROM Customers').all()
+    console.log('request customer list')
+    const customers = await env.DB.prepare('SELECT * FROM Customers').all()
     return createResponse(customers.results)
   } catch (error) {
     return createErrorResponse(error)
   }
-}
+})
 
-export const onRequestPost = async (context) => {
+// 获取客户
+router.get<IRequest>('/:id', async (request, env: Env) => {
+  const { id } = request.params
+  const customer = await env.DB.prepare('SELECT * FROM Customers WHERE CustomerId = ?').bind(id).first()
+  return createResponse(customer)
+})
+
+// 创建客户
+router.post<IRequest>('', async (request, env: Env) => {
   try {
-    const { CompanyName, ContactName } = await context.request.json()
-    console.log('create customer!', CompanyName, ContactName)
-    const customers = await context.env.DB.prepare(
+    const { CompanyName, ContactName } = await request.json()
+    const customers = await env.DB.prepare(
       'INSERT INTO Customers (CompanyName, ContactName) VALUES (?, ?) RETURNING *',
     )
       .bind(CompanyName, ContactName)
@@ -23,13 +35,13 @@ export const onRequestPost = async (context) => {
   } catch (error) {
     return createErrorResponse(error)
   }
-}
+})
 
-export const onRequestPut = async (context) => {
+// 更新客户
+router.put('', async (request: Request, env: Env) => {
   try {
-    const { CustomerId, CompanyName, ContactName } = await context.request.json()
-    console.log('update customer!', CustomerId, CompanyName, ContactName)
-    const customers = await context.env.DB.prepare(
+    const { CustomerId, CompanyName, ContactName } = await request.json()
+    const customers = await env.DB.prepare(
       'UPDATE Customers SET CompanyName = ?, ContactName = ? WHERE CustomerId = ? RETURNING *',
     )
       .bind(CompanyName, ContactName, CustomerId)
@@ -38,20 +50,20 @@ export const onRequestPut = async (context) => {
   } catch (error) {
     return createErrorResponse(error)
   }
-}
+})
 
-export const onRequestDelete = async (context) => {
+// 删除客户
+router.delete<IRequest>('/:id', async (request, env: Env) => {
   try {
-    const { CustomerId } = await context.request.json()
-    if (!CustomerId) {
-      return createErrorResponse(null, 'CustomerId is required', 400, 400)
+    const { id } = request.params
+    if (!id) {
+      return createResponse(null, 'CustomerId is required', 400, 400)
     }
-    console.log('delete customer!', CustomerId)
-    await context.env.DB.prepare('DELETE FROM Customers WHERE CustomerId = ?')
-      .bind(CustomerId)
-      .run()
+    await env.DB.prepare('DELETE FROM Customers WHERE CustomerId = ?').bind(id).run()
     return createResponse()
   } catch (error) {
-    return createErrorResponse(error)
+    return createErrorResponse(error, 'delete customer error')
   }
-}
+})
+
+export default { ...router } // this looks pointless, but trust us

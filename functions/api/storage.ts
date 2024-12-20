@@ -1,8 +1,24 @@
 import { AutoRouter, IRequest } from 'itty-router'
-import { createResponse, createErrorResponse } from '../../utils/response'
-import { Env } from '../../types/worker-configuration'
+import { createResponse, createErrorResponse } from '../utils/response'
+import { Env } from '../types/worker-configuration'
 
 const router = AutoRouter({ base: '/api/storage' })
+
+// 列出所有文件
+router.get<IRequest>('/files', async (request, env: Env) => {
+  try {
+    const list = await env.MY_BUCKET.list()
+    const files = list.objects.map((obj) => ({
+      name: obj.key,
+      size: obj.size,
+      uploaded: obj.uploaded,
+      etag: obj.etag,
+    }))
+    return createResponse(files)
+  } catch (error) {
+    return createErrorResponse(error)
+  }
+})
 
 // 获取文件
 router.get<IRequest>('/:name.:extension?', async (request, env: Env) => {
@@ -45,7 +61,7 @@ router.put<IRequest>('/:name.:extension?', async (request, env: Env) => {
       },
     })
 
-    return createResponse(null, 'File uploaded successfully')
+    return createResponse(null, 'success')
   } catch (error) {
     return createErrorResponse(error)
   }
@@ -60,23 +76,7 @@ router.delete<IRequest>('/:name.:extension?', async (request, env: Env) => {
 
     await env.MY_BUCKET.delete(fullname)
 
-    return createResponse(null, 'File deleted successfully')
-  } catch (error) {
-    return createErrorResponse(error)
-  }
-})
-
-// 列出所有文件
-router.get<IRequest>('/files', async (request, env: Env) => {
-  try {
-    const list = await env.MY_BUCKET.list()
-    const files = list.objects.map((obj) => ({
-      name: obj.key,
-      size: obj.size,
-      uploaded: obj.uploaded,
-      etag: obj.etag,
-    }))
-    return createResponse(files)
+    return createResponse(null, 'success')
   } catch (error) {
     return createErrorResponse(error)
   }

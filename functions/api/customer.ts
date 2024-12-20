@@ -1,6 +1,6 @@
 import { AutoRouter, IRequest } from 'itty-router'
-import { createResponse, createErrorResponse } from '../../utils/response'
-import { Env } from '../../types/worker-configuration'
+import { createResponse, createErrorResponse } from '../utils/response'
+import { Env } from '../types/worker-configuration'
 
 const router = AutoRouter({ base: '/api/customer' })
 

@@ -32,10 +32,11 @@ router.get<IRequest>('/:name.:extension?', async (request, env: Env) => {
       return createResponse(null, 'File not found', 404, 404)
     }
 
-    // 返回文件内容
+    // 直接返回流
     return new Response(object.body as unknown as BodyInit, {
       headers: {
         'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${fullname}"`,
         etag: object.httpEtag,
       },
     })
@@ -51,11 +52,7 @@ router.put<IRequest>('/:name.:extension?', async (request, env: Env) => {
     const fullname = `${name}.${extension}`
     console.log(`upload file: ${fullname}`)
 
-    const file = await request.arrayBuffer()
-
-    // 将文件上传到 R2 存储桶
-    await env.MY_BUCKET.put(fullname, file, {
-      // 可以添加自定义元数据
+    await env.MY_BUCKET.put(fullname, request.body as unknown as ArrayBuffer, {
       customMetadata: {
         uploadedAt: new Date().toISOString(),
       },

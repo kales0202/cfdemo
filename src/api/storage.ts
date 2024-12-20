@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import type { AxiosResponse } from 'axios'
 
 export interface StorageFile {
   name: string
@@ -14,7 +15,7 @@ export const storage = {
   },
 
   // 获取文件内容
-  getFile(fileName: string): Promise<Blob> {
+  getFile(fileName: string): Promise<AxiosResponse> {
     return request.get(`/storage/${fileName}`, {
       responseType: 'blob',
       transformResponse: [(data) => data],

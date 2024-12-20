@@ -35,15 +35,18 @@ const getFileList = async () => {
 // 下载文件
 const downloadFile = async (fileName: string) => {
   try {
-    const blob = await storage.getFile(fileName)
-    const url = window.URL.createObjectURL(blob)
+    const response = await storage.getFile(fileName)
+    const disposition = response.headers['content-disposition']
+    const filename = disposition ? disposition.split('filename=')[1].replace(/"/g, '') : fileName
+
+    const url = window.URL.createObjectURL(response.data)
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', fileName)
+    link.setAttribute('download', filename)
     document.body.appendChild(link)
     link.click()
     link.remove()
-    window.URL.revokeObjectURL(url) // 清理URL对象
+    window.URL.revokeObjectURL(url)
   } catch (error) {
     console.error('Download failed:', error)
   }

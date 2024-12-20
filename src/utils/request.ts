@@ -60,13 +60,13 @@ const transform: InterceptorHooks = {
     return Promise.reject(err)
   },
   responseInterceptor(response: ExpandAxiosResponse) {
-    // 如果跳过响应转换，则直接返回响应
-    if (response.config.added?.skipResponseTransform) {
-      return response.data
-    }
-    const result = response.data as BaseApiResponse<any>
     // 因为 axios 返回不支持扩展自定义配置，需要自己断言一下
     if (response.status !== 200) return Promise.reject(response)
+    // 如果跳过响应转换，则直接返回响应
+    if (response.config.added?.skipResponseTransform) {
+      return response
+    }
+    const result = response.data as BaseApiResponse<any>
     if (result.code !== SUCCESS_CODE) {
       // 这里全局提示错误
       if (response.config.added?.logError) {

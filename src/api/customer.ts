@@ -21,4 +21,9 @@ export const customer = {
   delete(id: number): Promise<void> {
     return request.delete(`/customer/${id}`)
   },
+
+  // 更新客户
+  update(data: Customer): Promise<Customer> {
+    return request.put('/customer', data)
+  },
 }

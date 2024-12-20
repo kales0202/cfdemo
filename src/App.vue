@@ -3,77 +3,108 @@ import { RouterView } from 'vue-router'
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
-
-    <div class="wrapper">
-      <nav></nav>
-    </div>
-  </header>
-
-  <RouterView />
+  <div class="app">
+    <header>
+      <h1>Cloudflare Pages Demo</h1>
+      <p>基于 Cloudflare Pages + D1 + R2 的全栈应用演示</p>
+    </header>
+    <main>
+      <RouterView />
+    </main>
+    <footer>
+      <p>
+        Powered by Cloudflare Pages + D1 + R2 |
+        <a href="https://github.com/your-repo" target="_blank">GitHub</a>
+      </p>
+    </footer>
+  </div>
 </template>
 
-<style scoped>
+<style>
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Global styles */
+:root {
+  --primary-color: #3eaf7c;
+  --text-color: #4a4a4a;
+  --border-color: #e5e5e5;
+  --background-color: #f5f5f5;
+  --success-color: #42b983;
+  --danger-color: #ff7875;
+  --cancel-color: #909399;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    'Open Sans', 'Helvetica Neue', sans-serif;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--background-color);
+}
+
+/* Layout */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
 header {
-  line-height: 1.5;
-  max-height: 100vh;
-}
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-nav {
-  width: 100%;
-  font-size: 12px;
+  background: white;
+  padding: 2rem 0;
   text-align: center;
-  margin-top: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-nav a.router-link-exact-active {
-  color: var(--color-text);
+header h1 {
+  color: var(--primary-color);
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
 }
 
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
+header p {
+  color: var(--text-color);
+  opacity: 0.8;
 }
 
-nav a {
-  display: inline-block;
+main {
+  flex: 1;
+  width: 80%;
+  max-width: 1200px;
+  margin: 2rem auto;
   padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
 }
 
-nav a:first-of-type {
-  border: 0;
+footer {
+  background: white;
+  padding: 1.5rem 0;
+  text-align: center;
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
 }
 
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
+footer a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  main {
+    width: 95%;
+    margin: 1rem auto;
   }
 
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  nav {
-    text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
-
-    padding: 1rem 0;
-    margin-top: 1rem;
+  header h1 {
+    font-size: 1.5rem;
   }
 }
 </style>

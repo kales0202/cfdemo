@@ -50,6 +50,57 @@ router.get<IRequest>('/:name.:extension?', async (request, env: Env) => {
   }
 })
 
+// 使用 Stream 上传大文件
+router.put<IRequest>('/stream/:name.:extension?', async (request, env: Env) => {
+  try {
+    const { name, extension } = request.params
+    const fullname = `${name}.${extension}`
+    const contentLength = parseInt(request.headers.get('content-length') || '0')
+    const contentType = request.headers.get('content-type') || 'application/octet-stream'
+
+    console.log('content-type:', request.headers.get('content-type'))
+    console.log(`upload file via stream: ${fullname}, size: ${Utils.humanReadableSize(contentLength)}`)
+
+    if (!request.body || !contentLength) {
+      throw new Error('Request body and content-length are required')
+    }
+
+    // 创建分片上传任务
+    const multipartUpload = await env.MY_BUCKET.createMultipartUpload(fullname, {
+      httpMetadata: { contentType },
+      customMetadata: {
+        uploadedAt: new Date().toISOString(),
+        uploadMethod: 'stream'
+      },
+    })
+
+    try {
+      const reader = request.body.getReader()
+      const uploadedParts: R2UploadedPart[] = []
+      let partNumber = 1
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (!done && value) {
+          const uploadedPart = await multipartUpload.uploadPart(partNumber, value)
+          uploadedParts.push(uploadedPart)
+          partNumber++
+          console.log(`uploaded part: ${partNumber - 1}, size: ${Utils.humanReadableSize(value.length)}`)
+        }
+        if (done) break
+      }
+
+      await multipartUpload.complete(uploadedParts)
+      return createResponse(null, 'success')
+    } catch (error) {
+      await multipartUpload.abort()
+      throw error
+    }
+  } catch (error) {
+    return createErrorResponse(error)
+  }
+})
+
 /**
  * 文件上传处
  * 支持两种模式：
@@ -67,6 +118,7 @@ router.put<IRequest>('/:name.:extension?', async (request, env: Env) => {
     const contentLength = parseInt(request.headers.get('content-length') || '0')
     const contentType = request.headers.get('content-type') || 'application/octet-stream'
 
+    console.log('content-type:', request.headers.get('content-type'))
     console.log(`upload file: ${fullname}, size: ${Utils.humanReadableSize(contentLength)}`)
 
     if (!request.body) {
@@ -125,6 +177,9 @@ router.put<IRequest>('/:name.:extension?', async (request, env: Env) => {
           const uploadedPart = await multipartUpload.uploadPart(partNumber, uploadChunk)
           uploadedParts.push(uploadedPart)
           partNumber++
+          console.log(
+            `uploaded part: ${partNumber}, size: ${Utils.humanReadableSize(uploadChunk.length)}`,
+          )
         }
         if (done) break
       }

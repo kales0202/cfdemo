@@ -4,6 +4,7 @@ import { storage, type StorageFile } from '@/api/storage'
 import { customer } from '@/api/customer'
 
 const fileList = ref<StorageFile[]>([])
+const isUploading = ref(false)
 
 // 文件上传示例
 const handleFileUpload = async (event: Event) => {
@@ -11,13 +12,24 @@ const handleFileUpload = async (event: Event) => {
   if (!input.files?.length) return
 
   const file = input.files[0]
+  const fileName = file.name
+
   try {
-    await storage.uploadFile(file.name, file)
-    console.log('File uploaded successfully!')
-    // 刷新文件列表
+    isUploading.value = true
+
+    // 如果文件大于 100MB，使用流式上传
+    if (file.size > 100 * 1024 * 1024) {
+      await storage.uploadFileStream(fileName, file)
+    } else {
+      await storage.uploadFile(fileName, file)
+    }
+
     await getFileList()
   } catch (error) {
     console.error('Upload failed:', error)
+    // 处理错误...
+  } finally {
+    isUploading.value = false
   }
 }
 

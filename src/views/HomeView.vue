@@ -16,14 +16,7 @@ const handleFileUpload = async (event: Event) => {
 
   try {
     isUploading.value = true
-
-    // 如果文件大于 100MB，使用流式上传
-    if (file.size > 100 * 1024 * 1024) {
-      await storage.uploadFileStream(fileName, file)
-    } else {
-      await storage.uploadFile(fileName, file)
-    }
-
+    await storage.uploadFile(fileName, file)
     await getFileList()
   } catch (error) {
     console.error('Upload failed:', error)

@@ -5,4 +5,8 @@ import { D1Database, R2Bucket } from '@cloudflare/workers-types/experimental'
 export interface Env {
   MY_BUCKET: R2Bucket
   DB: D1Database
+  requestId: string
+  method: string
+  functionPath: string
+  location: string
 }

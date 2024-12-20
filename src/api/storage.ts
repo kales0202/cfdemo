@@ -37,21 +37,7 @@ export const storage = {
       transformResponse: [(data) => data],
       added: {
         skipResponseTransform: true,
-      }
-    })
-  },
-
-  // 使用流式上传
-  uploadFileStream(fileName: string, file: File): Promise<void> {
-    return request.put(`/storage/stream/${fileName}`, file, {
-      headers: {
-        'Content-Type': file.type || 'application/octet-stream',
       },
-      timeout: 30 * 60 * 1000, // 30分钟超时
-      transformResponse: [(data) => data],
-      added: {
-        skipResponseTransform: true,
-      }
     })
   },
 

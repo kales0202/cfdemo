@@ -13,6 +13,10 @@ router.all('/api/*', () => new Response('Not Found.', { status: 404 }))
 export const onRequest = async (context) => {
   try {
     // console.log('context', context)
+    context.env.requestId = crypto.randomUUID() // 生成本次请求唯一ID
+    context.env.method = context.request.method
+    context.env.functionPath = context.functionPath
+    context.env.location = `${context.request?.cf?.city}-${context.request?.cf?.country}`
     return router.fetch(context.request, context.env)
   } catch (error) {
     console.error('Error in onRequest:', error)

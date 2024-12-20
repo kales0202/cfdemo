@@ -1,13 +1,14 @@
 import { AutoRouter, IRequest } from 'itty-router'
 import { createResponse, createErrorResponse } from '../utils/response'
 import { Env } from '../types/worker-configuration'
+import { Utils } from '../utils'
 
 const router = AutoRouter({ base: '/api/customer' })
 
 // 获取客户列表
 router.get<IRequest>('/list', async (request, env: Env) => {
   try {
-    console.log('request customer list')
+    Utils.log('request customer list', env)
     const customers = await env.DB.prepare('SELECT * FROM Customers').all()
     return createResponse(customers.results)
   } catch (error) {

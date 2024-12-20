@@ -5,12 +5,13 @@ import { ReadableStream } from '@cloudflare/workers-types/experimental'
 import { R2UploadedPart } from '@cloudflare/workers-types/experimental'
 import { Utils } from '../utils'
 
-const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB 分片
+const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB 分片
 
 const router = AutoRouter({ base: '/api/storage' })
 
 // 列出所有文件
 router.get<IRequest>('/files', async (request, env: Env) => {
+  Utils.log('list files', env)
   try {
     const list = await env.MY_BUCKET.list()
     const files = list.objects.map((obj) => ({
@@ -30,7 +31,7 @@ router.get<IRequest>('/:name.:extension?', async (request, env: Env) => {
   try {
     const { name, extension } = request.params
     const fullname = `${name}.${extension}`
-    console.log(`get file: ${fullname}`)
+    Utils.log(`get file: ${fullname}`, env)
     const object = await env.MY_BUCKET.get(fullname)
 
     if (!object) {
@@ -50,62 +51,11 @@ router.get<IRequest>('/:name.:extension?', async (request, env: Env) => {
   }
 })
 
-// 使用 Stream 上传大文件
-router.put<IRequest>('/stream/:name.:extension?', async (request, env: Env) => {
-  try {
-    const { name, extension } = request.params
-    const fullname = `${name}.${extension}`
-    const contentLength = parseInt(request.headers.get('content-length') || '0')
-    const contentType = request.headers.get('content-type') || 'application/octet-stream'
-
-    console.log('content-type:', request.headers.get('content-type'))
-    console.log(`upload file via stream: ${fullname}, size: ${Utils.humanReadableSize(contentLength)}`)
-
-    if (!request.body || !contentLength) {
-      throw new Error('Request body and content-length are required')
-    }
-
-    // 创建分片上传任务
-    const multipartUpload = await env.MY_BUCKET.createMultipartUpload(fullname, {
-      httpMetadata: { contentType },
-      customMetadata: {
-        uploadedAt: new Date().toISOString(),
-        uploadMethod: 'stream'
-      },
-    })
-
-    try {
-      const reader = request.body.getReader()
-      const uploadedParts: R2UploadedPart[] = []
-      let partNumber = 1
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (!done && value) {
-          const uploadedPart = await multipartUpload.uploadPart(partNumber, value)
-          uploadedParts.push(uploadedPart)
-          partNumber++
-          console.log(`uploaded part: ${partNumber - 1}, size: ${Utils.humanReadableSize(value.length)}`)
-        }
-        if (done) break
-      }
-
-      await multipartUpload.complete(uploadedParts)
-      return createResponse(null, 'success')
-    } catch (error) {
-      await multipartUpload.abort()
-      throw error
-    }
-  } catch (error) {
-    return createErrorResponse(error)
-  }
-})
-
 /**
  * 文件上传处
  * 支持两种模式：
- * 1. 小文件（<=5MB）：直接上传
- * 2. 大文件（>5MB）：自动分片上传，每片5MB
+ * 1. 小文件（<= X MB）：直接上传
+ * 2. 大文件（> X MB）：自动分片上传，每片 X MB
  *
  * @param request 包含文件内容的请求
  * @param env 包含R2存储桶的环境变量
@@ -118,14 +68,13 @@ router.put<IRequest>('/:name.:extension?', async (request, env: Env) => {
     const contentLength = parseInt(request.headers.get('content-length') || '0')
     const contentType = request.headers.get('content-type') || 'application/octet-stream'
 
-    console.log('content-type:', request.headers.get('content-type'))
-    console.log(`upload file: ${fullname}, size: ${Utils.humanReadableSize(contentLength)}`)
+    Utils.log(`upload file: ${fullname}, size: ${Utils.humanReadableSize(contentLength)}`, env)
 
     if (!request.body) {
       throw new Error('Request body is required')
     }
 
-    // 5MB 以下的文件直接上传
+    // 小文件直接上传
     if (contentLength > 0 && contentLength <= CHUNK_SIZE) {
       await env.MY_BUCKET.put(fullname, request.body as unknown as ReadableStream, {
         httpMetadata: { contentType },
@@ -177,8 +126,9 @@ router.put<IRequest>('/:name.:extension?', async (request, env: Env) => {
           const uploadedPart = await multipartUpload.uploadPart(partNumber, uploadChunk)
           uploadedParts.push(uploadedPart)
           partNumber++
-          console.log(
+          Utils.log(
             `uploaded part: ${partNumber}, size: ${Utils.humanReadableSize(uploadChunk.length)}`,
+            env,
           )
         }
         if (done) break
@@ -202,7 +152,7 @@ router.delete<IRequest>('/:name.:extension?', async (request, env: Env) => {
   try {
     const { name, extension } = request.params
     const fullname = `${name}.${extension}`
-    console.log(`delete file: ${fullname}`)
+    Utils.log(`delete file: ${fullname}`, env)
 
     await env.MY_BUCKET.delete(fullname)
 

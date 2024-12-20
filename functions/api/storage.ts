@@ -1,6 +1,11 @@
 import { AutoRouter, IRequest } from 'itty-router'
 import { createResponse, createErrorResponse } from '../utils/response'
 import { Env } from '../types/worker-configuration'
+import { ReadableStream } from '@cloudflare/workers-types/experimental'
+import { R2UploadedPart } from '@cloudflare/workers-types/experimental'
+import { Utils } from '../utils'
+
+const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB 分片
 
 const router = AutoRouter({ base: '/api/storage' })
 
@@ -45,20 +50,93 @@ router.get<IRequest>('/:name.:extension?', async (request, env: Env) => {
   }
 })
 
-// 上传文件
+/**
+ * 文件上传处
+ * 支持两种模式：
+ * 1. 小文件（<=5MB）：直接上传
+ * 2. 大文件（>5MB）：自动分片上传，每片5MB
+ *
+ * @param request 包含文件内容的请求
+ * @param env 包含R2存储桶的环境变量
+ * @returns 上传成功返回success，失败返回错误信息
+ */
 router.put<IRequest>('/:name.:extension?', async (request, env: Env) => {
   try {
     const { name, extension } = request.params
     const fullname = `${name}.${extension}`
-    console.log(`upload file: ${fullname}`)
+    const contentLength = parseInt(request.headers.get('content-length') || '0')
+    const contentType = request.headers.get('content-type') || 'application/octet-stream'
 
-    await env.MY_BUCKET.put(fullname, request.body as unknown as ArrayBuffer, {
-      customMetadata: {
-        uploadedAt: new Date().toISOString(),
-      },
+    console.log(`upload file: ${fullname}, size: ${Utils.humanReadableSize(contentLength)}`)
+
+    if (!request.body) {
+      throw new Error('Request body is required')
+    }
+
+    // 5MB 以下的文件直接上传
+    if (contentLength > 0 && contentLength <= CHUNK_SIZE) {
+      await env.MY_BUCKET.put(fullname, request.body as unknown as ReadableStream, {
+        httpMetadata: { contentType },
+        customMetadata: { uploadedAt: new Date().toISOString() },
+      })
+      return createResponse(null, 'success')
+    }
+
+    // 创建分片上传任务
+    const multipartUpload = await env.MY_BUCKET.createMultipartUpload(fullname, {
+      httpMetadata: { contentType },
+      customMetadata: { uploadedAt: new Date().toISOString() },
     })
 
-    return createResponse(null, 'success')
+    try {
+      const reader = request.body.getReader()
+      const uploadedParts: R2UploadedPart[] = []
+      const chunks: Uint8Array[] = [] // 使用数组存储数据块
+      let totalLength = 0
+      let partNumber = 1
+      while (true) {
+        const { done, value } = await reader.read()
+        if (value) {
+          chunks.push(value)
+          totalLength += value.length
+        }
+        // 当累积长度达到或超过分片大小，或者是最后一块数据时，执行上传
+        while (totalLength >= CHUNK_SIZE || (done && totalLength > 0)) {
+          // 确定这次要上传的大小（取CHUNK_SIZE和totalLength的较小值）
+          const uploadSize = Math.min(CHUNK_SIZE, totalLength)
+          const uploadChunk = new Uint8Array(uploadSize)
+          let offset = 0
+
+          while (offset < uploadSize) {
+            const chunk = chunks[0]
+            const remainingSpace = uploadSize - offset
+            if (chunk.length <= remainingSpace) {
+              uploadChunk.set(chunk, offset)
+              offset += chunk.length
+              totalLength -= chunk.length
+              chunks.shift()
+            } else {
+              uploadChunk.set(chunk.subarray(0, remainingSpace), offset)
+              chunks[0] = chunk.subarray(remainingSpace)
+              totalLength -= remainingSpace
+              break
+            }
+          }
+          const uploadedPart = await multipartUpload.uploadPart(partNumber, uploadChunk)
+          uploadedParts.push(uploadedPart)
+          partNumber++
+        }
+        if (done) break
+      }
+
+      // 完成分片上传
+      await multipartUpload.complete(uploadedParts)
+      return createResponse(null, 'success')
+    } catch (error) {
+      // 出错时中止分片上传
+      await multipartUpload.abort()
+      throw error
+    }
   } catch (error) {
     return createErrorResponse(error)
   }

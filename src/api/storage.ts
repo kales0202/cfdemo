@@ -15,6 +15,7 @@ export const storage = {
   },
 
   // 获取文件内容
+  // 获取文件限制：https://developers.cloudflare.com/workers/platform/limits/#response-limits
   getFile(fileName: string): Promise<AxiosResponse> {
     return request.get(`/storage/${fileName}`, {
       responseType: 'blob',
@@ -26,8 +27,17 @@ export const storage = {
   },
 
   // 上传文件
+  // 上传文件限制：https://developers.cloudflare.com/workers/platform/limits/#request-limits
   uploadFile(fileName: string, file: File): Promise<void> {
-    return request.put(`/storage/${fileName}`, file)
+    return request.put(`/storage/${fileName}`, file, {
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+      transformResponse: [(data) => data],
+      added: {
+        skipResponseTransform: true,
+      }
+    })
   },
 
   // 删除文件

@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue'
 import { storage, type StorageFile } from '@/api/storage'
 import { customer, type Customer } from '@/api/customer'
 import CustomerDialog from '@/components/CustomerDialog.vue'
+import MessageBox from '@/components/MessageBox.vue'
+import LoadingMask from '@/components/LoadingMask.vue'
 
 // R2 存储相关
 const fileList = ref<StorageFile[]>([])
@@ -11,13 +13,17 @@ const uploadProgress = ref(0)
 
 // D1 数据库相关
 const customers = ref<Customer[]>([])
+const pageLoading = ref(false)
+const sectionLoading = ref(false)
 const newCustomer = ref<Omit<Customer, 'CustomerId'>>({
   CompanyName: '',
-  ContactName: ''
+  ContactName: '',
 })
 const showEditDialog = ref(false)
 const currentCustomer = ref<Customer | null>(null)
-const isLoading = ref(false)
+
+// 消息提示引用
+const messageBox = ref()
 
 // R2 文件操作方法
 const handleFileUpload = async (event: Event) => {
@@ -33,9 +39,10 @@ const handleFileUpload = async (event: Event) => {
     await storage.uploadFile(fileName, file)
     await getFileList()
     input.value = '' // 清空输入框
+    messageBox.value.success('文件上传成功')
   } catch (error) {
     console.error('Upload failed:', error)
-    alert('文件上传失败')
+    messageBox.value.error('文件上传失败')
   } finally {
     isUploading.value = false
     uploadProgress.value = 0
@@ -48,27 +55,18 @@ const getFileList = async () => {
     fileList.value = files
   } catch (error) {
     console.error('Failed to get file list:', error)
-    alert('获取文件列表失败')
+    messageBox.value.error('获取文件列表失败')
   }
 }
 
 const downloadFile = async (fileName: string) => {
   try {
-    const response = await storage.getFile(fileName)
-    const disposition = response.headers['content-disposition']
-    const filename = disposition ? disposition.split('filename=')[1].replace(/"/g, '') : fileName
-
-    const url = window.URL.createObjectURL(response.data)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.URL.revokeObjectURL(url)
+    const url = await storage.downloadFile(fileName)
+    window.location.href = url
+    messageBox.value.success('开始下载文件')
   } catch (error) {
     console.error('Download failed:', error)
-    alert('文件下载失败')
+    messageBox.value.error('文件下载失败')
   }
 }
 
@@ -78,41 +76,42 @@ const deleteFile = async (fileName: string) => {
   try {
     await storage.deleteFile(fileName)
     await getFileList()
+    messageBox.value.success('文件删除成功')
   } catch (error) {
     console.error('Delete failed:', error)
-    alert('文件删除失败')
+    messageBox.value.error('文件删除失败')
   }
 }
 
 // D1 客户操作方法
 const loadCustomers = async () => {
   try {
-    isLoading.value = true
+    sectionLoading.value = true
     customers.value = await customer.getList()
   } catch (error) {
     console.error('Failed to load customers:', error)
-    alert('加载客户列表失败')
   } finally {
-    isLoading.value = false
+    sectionLoading.value = false
   }
 }
 
 const createCustomer = async () => {
   if (!newCustomer.value.CompanyName || !newCustomer.value.ContactName) {
-    alert('请填写完整的客户信息')
+    messageBox.value.error('请填写完整的客户信息')
     return
   }
 
   try {
-    isLoading.value = true
+    sectionLoading.value = true
     await customer.create(newCustomer.value)
     newCustomer.value = { CompanyName: '', ContactName: '' }
     await loadCustomers()
+    messageBox.value.success('客户创建成功')
   } catch (error) {
     console.error('Failed to create customer:', error)
-    alert('创建客户失败')
+    messageBox.value.error('创建客户失败')
   } finally {
-    isLoading.value = false
+    sectionLoading.value = false
   }
 }
 
@@ -125,45 +124,59 @@ const handleUpdate = async (formData: Omit<Customer, 'CustomerId'>) => {
   if (!currentCustomer.value) return
 
   try {
-    isLoading.value = true
+    pageLoading.value = true
     await customer.update({
       ...formData,
-      CustomerId: currentCustomer.value.CustomerId
+      CustomerId: currentCustomer.value.CustomerId,
     })
     currentCustomer.value = null
     await loadCustomers()
+    messageBox.value.success('客户信息更新成功')
   } catch (error) {
     console.error('Failed to update customer:', error)
-    alert('更新客户失败')
+    messageBox.value.error('更新客户失败')
   } finally {
-    isLoading.value = false
+    pageLoading.value = false
   }
 }
 
 const deleteCustomer = async (id: number) => {
-  if (!confirm('确定要删除该客户吗？')) return
+  if (!confirm('确定要删除此客户吗？此操作不可恢复')) return
 
   try {
-    isLoading.value = true
+    pageLoading.value = true
     await customer.delete(id)
     await loadCustomers()
+    messageBox.value.success('客户删除成功')
   } catch (error) {
     console.error('Failed to delete customer:', error)
-    alert('删除客户失败')
+    messageBox.value.error('删除客户失败')
   } finally {
-    isLoading.value = false
+    pageLoading.value = false
   }
 }
 
 onMounted(async () => {
-  await Promise.all([getFileList(), loadCustomers()])
+  try {
+    pageLoading.value = true
+    await Promise.all([getFileList(), loadCustomers()])
+  } catch (error) {
+    console.error('Failed to load initial data:', error)
+    messageBox.value.error('数据加载失败')
+  } finally {
+    pageLoading.value = false
+  }
 })
 </script>
 
 <template>
   <div class="home">
+    <MessageBox ref="messageBox" />
+    <LoadingMask :loading="pageLoading" text="页面加载中..." />
+
     <!-- D1 数据库操作部分 -->
     <section class="card">
+      <LoadingMask :loading="sectionLoading" />
       <div class="card-header">
         <h2>D1 数据库演示</h2>
         <p>基本的客户信息 CRUD 操作</p>
@@ -172,18 +185,10 @@ onMounted(async () => {
       <div class="card-body">
         <!-- 新增客户表单 -->
         <div class="form-group">
-          <input
-            v-model="newCustomer.CompanyName"
-            placeholder="公司名称"
-            :disabled="isLoading"
-          />
-          <input
-            v-model="newCustomer.ContactName"
-            placeholder="联系人"
-            :disabled="isLoading"
-          />
-          <button class="btn primary" @click="createCustomer" :disabled="isLoading">
-            {{ isLoading ? '处理中...' : '添加客户' }}
+          <input v-model="newCustomer.CompanyName" placeholder="公司名" :disabled="sectionLoading" />
+          <input v-model="newCustomer.ContactName" placeholder="联系人" :disabled="sectionLoading" />
+          <button class="btn primary" @click="createCustomer" :disabled="sectionLoading">
+            {{ sectionLoading ? '处理中...' : '添加客户' }}
           </button>
         </div>
 
@@ -218,6 +223,7 @@ onMounted(async () => {
 
     <!-- R2 存储操作部分 -->
     <section class="card">
+      <LoadingMask :loading="isUploading" text="文件上传中..." />
       <div class="card-header">
         <h2>R2 存储演示</h2>
         <p>文件上传、下载和管理</p>
@@ -261,11 +267,7 @@ onMounted(async () => {
     </section>
 
     <!-- 添加编辑弹窗 -->
-    <CustomerDialog
-      v-model="showEditDialog"
-      :customer="currentCustomer"
-      @submit="handleUpdate"
-    />
+    <CustomerDialog v-model="showEditDialog" :customer="currentCustomer" @submit="handleUpdate" />
   </div>
 </template>
 
@@ -277,6 +279,7 @@ onMounted(async () => {
 }
 
 .card {
+  position: relative;
   background: white;
   border-radius: 8px;
   overflow: hidden;
@@ -374,7 +377,8 @@ table {
   border-collapse: collapse;
 }
 
-th, td {
+th,
+td {
   padding: 0.75rem;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
@@ -393,14 +397,14 @@ th {
   gap: 1rem;
 }
 
-.upload-area input[type="file"] {
+.upload-area input[type='file'] {
   padding: 0.5rem;
   border: 2px dashed var(--border-color);
   border-radius: 4px;
   cursor: pointer;
 }
 
-.upload-area input[type="file"]:hover {
+.upload-area input[type='file']:hover {
   border-color: var(--primary-color);
 }
 

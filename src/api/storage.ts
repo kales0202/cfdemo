@@ -23,7 +23,15 @@ export const storage = {
       added: {
         skipResponseTransform: true,
       },
+      timeout: 30 * 60 * 1000, // 30分钟超时
     })
+  },
+
+  // 下载文件
+  // 获取文件限制：https://developers.cloudflare.com/workers/platform/limits/#response-limits
+  downloadFile(fileName: string): Promise<string> {
+    // 直接返回完整的下载URL
+    return Promise.resolve(`/api/storage/${fileName}`)
   },
 
   // 上传文件

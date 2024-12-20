@@ -43,6 +43,8 @@ router.get<IRequest>('/:name.:extension?', async (request, env: Env) => {
       headers: {
         'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
         'Content-Disposition': `attachment; filename="${fullname}"`,
+        'Content-Length': object.size.toString(),
+        'Accept-Ranges': 'bytes',
         etag: object.httpEtag,
       },
     })
@@ -83,7 +85,7 @@ router.put<IRequest>('/:name.:extension?', async (request, env: Env) => {
       return createResponse(null, 'success')
     }
 
-    // 创建分片上传任务
+    // 创建��片上传任务
     const multipartUpload = await env.MY_BUCKET.createMultipartUpload(fullname, {
       httpMetadata: { contentType },
       customMetadata: { uploadedAt: new Date().toISOString() },

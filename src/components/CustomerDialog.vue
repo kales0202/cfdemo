@@ -4,7 +4,7 @@ import type { Customer } from '@/api/customer'
 
 const props = defineProps<{
   modelValue: boolean
-  customer?: Customer
+  customer?: Customer | null
   title?: string
 }>()
 
